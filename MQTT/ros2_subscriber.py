@@ -1,4 +1,4 @@
-kimport paho.mqtt.client as mqtt
+import paho.mqtt.client as mqtt
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist
@@ -12,7 +12,12 @@ class MQTTToROS2(Node):
     def __init__(self):
         super().__init__("mqtt_to_ros2")
         self.publisher = self.create_publisher(Twist, "/cmd_vel", 10)
-        self.movement_active = True  # Start with movement active
+
+        # Movement state (default is moving at 0.5 m/s)
+        self.current_speed = 0.5
+
+        # Timer for publishing movement commands (10 Hz)
+        self.timer = self.create_timer(0.1, self.publish_movement)
 
         # Initialize MQTT client
         self.mqtt_client = mqtt.Client()
@@ -23,9 +28,7 @@ class MQTTToROS2(Node):
         self.mqtt_client.connect(BROKER, PORT, 60)
         self.mqtt_client.loop_start()
 
-        # Start the robot moving at 0.5 m/s
-        self.get_logger().info("Starting robot with 0.5 m/s speed.")
-        self.publish_movement(0.5)
+        self.get_logger().info("Node initialized. Robot moving at 0.5 m/s.")
 
     def on_connect(self, client, userdata, flags, rc):
         if rc == 0:
@@ -41,28 +44,19 @@ class MQTTToROS2(Node):
 
         if command == "stop":
             self.get_logger().info("Stopping the robot...")
-            self.movement_active = False
-            self.publish_movement(0.0)  # Send stop signal
+            self.current_speed = 0.0  # Update speed to stop
 
         elif command == "go":
             self.get_logger().info("Resuming the robot's movement at 0.5 m/s...")
-            self.movement_active = True
-            self.publish_movement(0.5)  # Resume movement
+            self.current_speed = 0.5  # Update speed to move
 
-    def publish_movement(self, speed):
-        """
-        Continuously publish the given speed as a Twist message
-        while the current mode (movement_active) is true.
-        """
+    def publish_movement(self):
+        """Publish the current speed to /cmd_vel."""
         twist_msg = Twist()
-        twist_msg.linear.x = speed
+        twist_msg.linear.x = self.current_speed
         twist_msg.angular.z = 0.0
-
-        # Publish continuously while the state is active
-        while rclpy.ok() and ((self.movement_active and speed > 0) or (not self.movement_active and speed == 0)):
-            self.publisher.publish(twist_msg)
-            self.get_logger().info(f"Publishing: linear.x={speed}, angular.z=0.0")
-            rclpy.spin_once(self, timeout_sec=0.1)  # Allow callback handling
+        self.publisher.publish(twist_msg)
+        self.get_logger().info(f"Published: linear.x={self.current_speed}, angular.z=0.0")
 
 def main(args=None):
     rclpy.init(args=args)
@@ -80,4 +74,3 @@ def main(args=None):
 
 if __name__ == "__main__":
     main()
-
