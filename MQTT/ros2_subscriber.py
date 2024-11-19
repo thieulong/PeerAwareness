@@ -4,9 +4,9 @@ from rclpy.node import Node
 from geometry_msgs.msg import Twist
 
 # MQTT settings
-BROKER = "mqtt.eclipseprojects.io"  # Replace with your broker address
+BROKER = "127.0.0.1"  # Replace with your broker address
 PORT = 1883  # Default MQTT port
-TOPIC = "robot/control"  # Replace with your desired MQTT topic
+TOPIC = "movement/signal"  # Replace with your desired MQTT topic
 
 class MQTTToROS2(Node):
     def __init__(self):
